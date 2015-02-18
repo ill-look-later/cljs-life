@@ -4,6 +4,15 @@
             [cljs.core.async :refer (timeout <!)])
   (:require-macros [cljs.core.async.macros :refer (go)]))
 
+(defn add-timer
+  [f prefix]
+  (fn [& args]
+    (let [t (js/Date.)
+          r (apply f args)
+          t2 (js/Date.)]
+      (js/console.log prefix (- t2 t))
+      r)))
+
 (defn neighbors
   "Given a set of cells returns a seq of adjacent cells. If n cells share a 
   neighbor then this neighbor will be in the seq n times."
@@ -11,6 +20,7 @@
   (for [[x y] cells dx [-1 0 1] dy [-1 0 1]  
         :when (not (and (zero? dx) (zero? dy)))]
     [(+ x dx) (+ y dy)]))
+
 
 (defn in-bounds?
   "Given bounds [width height] and a cell returns true if the cell is inside
@@ -33,20 +43,13 @@
           (hash-set)
           (frequencies (neighbors cells))))
 
+
 (defn update-state
   [{:keys [cells bounds] :as state}] 
   (assoc state :cells (next-state cells bounds)))
 
-(defn add-timer
-  [f prefix]
-  (fn [& args]
-    (let [t (js/Date.)
-          r (apply f args)
-          t2 (js/Date.)]
-      (js/console.log prefix (- t2 t))
-      r)))
 
-(def update-state (add-timer update-state "update-state"))
+#_(def update-state (add-timer update-state "update-state"))
 
 
 (defn live!
@@ -90,6 +93,22 @@
                       (disj cells cell)
                       (conj cells cell))))))
                   
+(defn random-cells
+  [[width height]]
+  (set (filter #(> (Math/random) 0.5) 
+               (for [x (range 0 width) 
+                     y (range 0 width)] 
+                 (vector x y)))))
+
+(defonce app-state (atom {:cells #{} 
+                          :bounds [50 20]
+                          :playing? false 
+                          :cell-size 20
+                          :speed 5}))
+
+(defn reset-random!
+  []
+  (swap! app-state (fn [{b :bounds :as s}] (assoc s :cells (random-cells b))))) 
 
 (defn world
   [app owner]
@@ -101,7 +120,10 @@
                  (dom/div nil 
                           (dom/button 
                             #js {:onClick (partial toggle-play-state app)}
-                            (if (:playing? app) "stop" "play")))
+                            (if (:playing? app) "stop" "play"))
+                          (dom/button
+                            #js {:onClick #(reset-random!)}
+                            "random"))
                  (apply dom/svg #js {:height (* height cell-size) 
                                      :width (* width cell-size)
                                      :onClick (partial handle-world-click 
@@ -115,18 +137,7 @@
            app-state
            {:target (. js/document (getElementById "app"))}))
 
-(defn random-cells
-  [[width height]]
-  (set (filter #(> (Math/random) 0.5) 
-               (for [x (range 0 width) 
-                     y (range 0 width)] 
-                 (vector x y)))))
 
-(defonce app-state (atom {:cells (random-cells [50 20])
-                          :bounds [50 20]
-                          :playing? false 
-                          :cell-size 20
-                          :speed 50}))
 (defn main []
   (draw! app-state)
   (live! app-state))
