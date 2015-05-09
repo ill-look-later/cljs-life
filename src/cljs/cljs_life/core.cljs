@@ -4,14 +4,6 @@
             [cljs.core.async :refer (timeout <!)])
   (:require-macros [cljs.core.async.macros :refer (go)]))
 
-(defn add-timer
-  [f prefix]
-  (fn [& args]
-    (let [t (js/Date.)
-          r (apply f args)
-          t2 (js/Date.)]
-      (js/console.log prefix (- t2 t))
-      r)))
 
 (defn neighbors
   "Given a set of cells returns a seq of adjacent cells. If n cells share a 
@@ -43,16 +35,13 @@
           (hash-set)
           (frequencies (neighbors cells))))
 
-
 (defn update-state
+  "Given the current state of the world returns the next state."
   [{:keys [cells bounds] :as state}] 
   (assoc state :cells (next-state cells bounds)))
 
-
-#_(def update-state (add-timer update-state "update-state"))
-
-
 (defn live!
+  "Start the simulation loop."
   [app-state]
   (go 
     (while true
@@ -61,7 +50,42 @@
         (when playing? 
           (swap! app-state update-state))))))
 
+(defn toggle-play-state
+  "Given an om cursor and an event object toggles the playing? state"
+  [state _]
+  (om/transact! state [:playing?] not))
+
+(defn event->cell
+  "Calculates which cell on which an event happened"
+  [event cell-size] 
+  (vector (quot (- (.-clientX event) 8) cell-size)
+          (quot (- (.-clientY event) 28) cell-size)))
+
+(defn handle-world-click
+  "Handle a user event on the world."
+  [state cell-size e]
+  (let [cell (event->cell e cell-size)]
+    (om/transact! state [:cells] 
+                  (fn [cells] 
+                    (if (contains? cells cell)
+                      (disj cells cell)
+                      (conj cells cell))))))
+                  
+(defn random-cells
+  "Returns a random set of live cells within a bounding box."
+  [[width height]]
+  (set (filter #(> (Math/random) 0.5) 
+               (for [x (range 0 width) 
+                     y (range 0 width)] 
+                 (vector x y)))))
+
+(defn reset-random!
+  "Resets the app state cursor with a random set of live cells."
+  [app]
+  (om/transact! app (fn [{b :bounds :as s}] (assoc s :cells (random-cells b)))))
+
 (defn cell-els
+  "Contructs the svg elements to represent the cells."
   [width height cell-size cells]
   (for [cell-x (range 0 width)
         cell-y (range 0 height)]
@@ -74,43 +98,8 @@
                                  :stroke "#ccccce"
                                  :stroke-width "0.5"}}))))
 
-(defn toggle-play-state
-  [state _]
-  (om/transact! state [:playing?] not))
-
-
-(defn event->cell
-  [event cell-size] 
-  (vector (quot (- (.-clientX event) 8) cell-size)
-          (quot (- (.-clientY event) 28) cell-size)))
-
-(defn handle-world-click
-  [state cell-size e]
-  (let [cell (event->cell e cell-size)]
-    (om/transact! state [:cells] 
-                  (fn [cells] 
-                    (if (contains? cells cell)
-                      (disj cells cell)
-                      (conj cells cell))))))
-                  
-(defn random-cells
-  [[width height]]
-  (set (filter #(> (Math/random) 0.5) 
-               (for [x (range 0 width) 
-                     y (range 0 width)] 
-                 (vector x y)))))
-
-(defonce app-state (atom {:cells #{} 
-                          :bounds [50 20]
-                          :playing? false 
-                          :cell-size 20
-                          :speed 5}))
-
-(defn reset-random!
-  []
-  (swap! app-state (fn [{b :bounds :as s}] (assoc s :cells (random-cells b))))) 
-
 (defn world
+  "Om component for the world."
   [app owner]
   (reify
     om/IRender
@@ -122,7 +111,7 @@
                             #js {:onClick (partial toggle-play-state app)}
                             (if (:playing? app) "stop" "play"))
                           (dom/button
-                            #js {:onClick #(reset-random!)}
+                            #js {:onClick #(reset-random! app)}
                             "random"))
                  (apply dom/svg #js {:height (* height cell-size) 
                                      :width (* width cell-size)
@@ -132,12 +121,17 @@
                         (cell-els width height cell-size cells)))))))
 
 (defn draw!
+  "Kick-off Om with the app-state atom"
   [app-state]
-  (om/root world
-           app-state
-           {:target (. js/document (getElementById "app"))}))
+  (om/root world app-state {:target (. js/document (getElementById "app"))}))
 
 
+(defonce app-state (atom {:cells #{} 
+                          :bounds [50 20]
+                          :playing? false 
+                          :cell-size 20
+                          :speed 5}))
 (defn main []
+  "Entry point for the application."
   (draw! app-state)
   (live! app-state))
