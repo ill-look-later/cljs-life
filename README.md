@@ -1,5 +1,9 @@
 # cljs-life
-
+Conways' game of life with a grid interface written in 
+[ClojureScript](https://github.com/clojure/clojurescript) / 
+[Om](https://github.com/omcljs/om).  Below is the auto generated README from 
+the [Chestnut](https://github.com/plexus/chestnut) 
+[Leiningen](https://github.com/technomancy/leiningen) template.
 
 ## Development
 
@@ -82,7 +86,7 @@ Now your app is running at
 
 ## License
 
-Copyright © 2014 FIXME
+Copyright © 2014 Jason Kapp 
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
