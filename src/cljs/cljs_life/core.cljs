@@ -57,9 +57,10 @@
 
 (defn event->cell
   "Calculates which cell on which an event happened"
-  [event cell-size] 
-  (vector (quot (- (.-clientX event) 8) cell-size)
-          (quot (- (.-clientY event) 28) cell-size)))
+  [event cell-size]
+  (let [target (.-target event)]
+    (vector (quot (- (.-pageX event) (.-offsetLeft target)) cell-size) 
+            (quot (- (.-pageY event) (.-offsetTop target)) cell-size))))
 
 (defn handle-world-click
   "Handle a user event on the world."
@@ -130,7 +131,7 @@
                           :bounds [50 20]
                           :playing? false 
                           :cell-size 20
-                          :speed 5}))
+                          :speed 8}))
 (defn main []
   "Entry point for the application."
   (draw! app-state)
